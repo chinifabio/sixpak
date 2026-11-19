@@ -1,0 +1,68 @@
+app-id: google.antigravity.Antigravity
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '26.08'
+command: antigravity
+separate-locales: false
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --socket=ssh-auth
+  - --device=dri
+  - --filesystem=host
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Flatpak
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
+  - --env=ELECTRON_OZONE_PLATFORM_HINT=auto
+
+modules:
+  - name: antigravity
+    buildsystem: simple
+    build-options:
+      no-debuginfo: true
+      strip: false
+    build-commands:
+      - cp -a antigravity /app/antigravity
+      - install -Dm755 antigravity.sh /app/bin/antigravity
+      - install -Dm644 google.antigravity.Antigravity.desktop /app/share/applications/google.antigravity.Antigravity.desktop
+      - install -Dm644 google.antigravity.Antigravity.metainfo.xml /app/share/metainfo/google.antigravity.Antigravity.metainfo.xml
+      # Extract the 512x512 PNG icon bundled inside resources/app.asar
+      - |
+        python3 - <<'EOF'
+        import json, os, struct
+        asar_path = "/app/antigravity/resources/app.asar"
+        out_path = "/app/share/icons/hicolor/512x512/apps/google.antigravity.Antigravity.png"
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        with open(asar_path, "rb") as f:
+            f.seek(4)
+            pickle_size = struct.unpack("<I", f.read(4))[0]
+            f.seek(12)
+            header_len = struct.unpack("<I", f.read(4))[0]
+            header = json.loads(f.read(header_len).decode("utf-8"))
+            icon = header["files"]["icon.png"]
+            f.seek(8 + pickle_size + int(icon["offset"]))
+            with open(out_path, "wb") as out:
+                out.write(f.read(icon["size"]))
+        EOF
+    sources:
+      - type: archive
+        only-arches:
+          - x86_64
+        dest: antigravity
+        strip-components: 1
+        url: https://storage.googleapis.com/antigravity-public/antigravity-hub/2.33.0-4731201358004224/linux-x64/Antigravity.tar.gz
+        sha256: a73387b229c6b1f5288860731133c5b26e153340eaed96d865032cd8a8535050
+      - type: file
+        path: antigravity.sh
+      - type: file
+        path: google.antigravity.Antigravity.desktop
+      - type: file
+        path: google.antigravity.Antigravity.metainfo.xml
